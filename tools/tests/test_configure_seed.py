@@ -429,6 +429,21 @@ class ConfigureSeedRoundTripTests(ConfigureSeedProject):
         self.assertIn(f"MINI_ODD:INTERNAL={value}\n", seeded)
         self.assertEqual(configure_seed.checks(self.root / "odd-seeded" / "CMakeCache.txt")["MINI_ODD"][0], value)
 
+    def test_quoted_key_with_cache_delimiter_in_value_round_trips(self):
+        key = "MINI:CHECK"
+        value = 'probe":INTERNAL=ok'
+        initial = self.root / "delimiter-initial.cmake"
+        initial.write_text(f'set("{key}" [=[{value}]=] CACHE INTERNAL "Test {key}")\n', encoding="utf-8")
+        self.configure_cache_only("delimiter-fresh", "-C", str(initial))
+        cache = self.root / "delimiter-fresh" / "CMakeCache.txt"
+        entry = f'"{key}":INTERNAL={value}\n'
+        self.assertIn(entry, cache.read_text(encoding="utf-8"))
+
+        seed = self.seed(cache, "delimiter-seed.cmake")
+        self.configure_cache_only("delimiter-seeded", "-C", str(seed))
+        seeded = self.root / "delimiter-seeded" / "CMakeCache.txt"
+        self.assertIn(entry, seeded.read_text(encoding="utf-8"))
+
     def test_values_cmake_quotes_for_trailing_whitespace_round_trip(self):
         source = self.root / "quoted-source"
         source.mkdir(exist_ok=True)
@@ -614,7 +629,7 @@ class ChecksParsingTests(unittest.TestCase):
                              '//Test MINI_COLON_QUOTE\n"MINI_"X":COLON":INTERNAL=0\n'
                              '//An ordinary entry\n"ORDINARY:COLON":INTERNAL=1\n'
                              '"MALFORMED:COLON":INTERNAL=1\n'
-                             '//Test AMBIGUOUS\n"A:B":INTERNAL=abc":INTERNAL=1\n', encoding="utf-8")
+                             '//Test AMBIGUOUS\n"A"B:C":INTERNAL=abc":INTERNAL=1\n', encoding="utf-8")
             self.assertEqual(configure_seed.checks(cache), {
                 "MINI_COLON:CHECK": ("1", "Test MINI_COLON"),
                 'MINI_"X":COLON': ("0", "Test MINI_COLON_QUOTE"),
